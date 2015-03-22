@@ -8,7 +8,7 @@ import java.util.Timer;
 
 
 class EEG_Processing_User {
- // positivity vars
+  // positivity vars
   final int alpha_left_first = 5-1;
   final int alpha_right_first = 2-1;
   final int alpha_left_second = 7-1;
@@ -130,20 +130,69 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     ArrayList<float[]> list = new ArrayList<float[]>();
     println("nchan = " + nchan);
     println("fftBuff[Ichan].specSize() = " + fftBuff[4].specSize());
-
+    
     for (int Ichan=0;Ichan < nchan; Ichan++) {
       //loop over each new sample
       for (int Ibin=0; Ibin < fftBuff[Ichan].specSize(); Ibin++){
         
         FFT_freq_Hz = fftData[Ichan].indexToFreq(Ibin);
         FFT_value_uV = fftData[Ichan].getBand(Ibin);
-        
+
+        boolean within_hz_range = (FFT_freq_Hz > 8 && FFT_freq_Hz < 13);
+//        println(Ibin + " " + within_hz_range);
+
         //add your processing here...
-        
-          
-        //println("EEG_Processing_User: Ichan = " + Ichan + ", Freq = " + FFT_freq_Hz + "Hz, FFT Value = " + FFT_value_uV + "uV/bin");
+
+        if ( (Ichan == alpha_left_first || Ichan == alpha_right_first) && within_hz_range ) {
+
+          if (list.size() > Ibin) {
+            float[] el = list.get(Ibin);
+            if (Ichan == alpha_left_first)  { el[0] = FFT_value_uV; }
+            if (Ichan == alpha_right_first) { el[1] = FFT_value_uV; }
+            for (int i=0; i < Ibin; i++) {
+              try {
+                list.get(i);
+              } catch ( IndexOutOfBoundsException e ) {
+                float[] temp = {0,0};
+                list.add(temp);
+              }
+            }
+            list.add(el);
+          } else {
+            float[] el = {0,0};
+            if (Ichan == alpha_left_first)  { el[0] = FFT_value_uV; }
+            if (Ichan == alpha_right_first) { el[1] = FFT_value_uV; }
+            for (int i=0; i < Ibin; i++) {
+              try {
+                list.get(i);
+              } catch ( IndexOutOfBoundsException e ) {
+                float[] temp = {0,0};
+                list.add(temp);
+              }
+            }
+            list.add(el);
+          }
+        }
       }
-    }  
+    }
+
+    float[][] arr = new float[list.size()][];
+    arr = list.toArray(arr);
+    float[] diffArr = new float[list.size()];
+
+    for (int i=0; i<list.size(); i++) {
+      diffArr[i] = arr[i][1]-arr[i][0];
+    }
+    
+    int count = 0;
+    float total = 0;
+    float average = 0;
+    
+    for (int i=0; i<diffArr.length; i++) {
+      if (diffArr[i] != 0) {
+        count += 1;
+        total += diffArr[i];
+      }
     }
     
     average = total / count; // average IS WHAT WE SEND TO SERVER AS "positivity"
@@ -177,7 +226,7 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     println("");
     println("length: " + nextFreeIndexOfBuffer);    
   }
-}   
+}
 
 
 class EEG_Processing {
