@@ -182,7 +182,7 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       }
     }
     
-    average = total / count;
+    average = total / count; // average IS WHAT WE SEND TO SERVER AS "positivity"
     
     println("");
     println("DIFFs:");
