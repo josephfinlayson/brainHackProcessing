@@ -5,33 +5,31 @@ import java.util.ArrayList;
 import papaya.*;
 import java.util.Timer;
 
-class UpdateTask extends TimerTask
-{
-    public void run()
-    {
-        System.out.print("TimerTask detected");
-    }
-}
 
 
 class EEG_Processing_User {
-  // positivity vars
-  final int alpha_left_first = 5-1;
-  final int alpha_right_first = 2-1;
-  final int alpha_left_second = 7-1;
-  final int alpha_right_second = 6-1;
-  
   private float fs_Hz;  //sample rate
   private int nchan;  
   boolean processing;  
   ArrayList<Float> averageNumbersHeartBeat = new ArrayList<Float>(10);
+  ArrayList<Boolean> heartbeats = new ArrayList<Boolean>(10);
   
-  int heartbeatCounter;  
+  public int heartbeatCounter;  
   final int thresholdIncrease = 10;
   final int heartBeatChan = 4-1;  
   final int interval = 250; // amount of data for a rolling average //half a second
   int heartbeatInterval = 250;
   int httpInterval = 10; //interval in seconds
+
+class UpdateTask extends TimerTask
+{
+  public void run()
+    {
+      println(heartbeatCounter);
+    }   
+}
+  
+
   //class constructor
 EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       nchan = NCHAN;
@@ -39,14 +37,15 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       
       startSendingHttpRequests();
 }
-  public void startSendingHttpRequests(){
-    
-    if (processing){
+  
+  public void startSendingHttpRequests(){  
+//    if (processing){
       Timer timer = new Timer();
-      timer.scheduleAtFixedRate(new UpdateTask(), 0, httpInterval * 1000);
+      timer.scheduleAtFixedRate(new UpdateTask(), 0, httpInterval * 1);
     
-    }
+//    }
   }
+  
   //add some functions here...if you'd like
   private boolean isHeartBeat(float runningAverage, float EEGValue){
        boolean isHeartbeat = false;
@@ -62,10 +61,10 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
      } 
      
      if (isHeartbeat) {
-         heartbeatInterval = 250;
+       heartbeatCounter++;
+       heartbeatInterval = 250;
      }
      
-     heartbeatCounter++;
      return isHeartbeat;
   }  
   
@@ -107,7 +106,9 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
             float average = runningSum/(averageNumbersHeartBeat.size());
             println("the average microvoltage over the last 250 samples is ", average, "current EEG" + EEG_value_uV);
 
-            
+            if (isHeartBeat(average, EEG_value_uV)){
+                println("HEARTBEAT");
+            }
 
         }
       }
@@ -116,82 +117,21 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
      
     //OR, you could loop over each EEG channel and do some sort of frequency-domain processing from the FFT data
     float FFT_freq_Hz, FFT_value_uV;
-    ArrayList<float[]> list = new ArrayList<float[]>();
-    
     for (int Ichan=0;Ichan < nchan; Ichan++) {
       //loop over each new sample
       for (int Ibin=0; Ibin < fftBuff[Ichan].specSize(); Ibin++){
         
         FFT_freq_Hz = fftData[Ichan].indexToFreq(Ibin);
         FFT_value_uV = fftData[Ichan].getBand(Ibin);
-
-        boolean within_hz_range = (FFT_freq_Hz > 8 && FFT_freq_Hz < 13);
-//        println(Ibin + " " + within_hz_range);
-
+        
         //add your processing here...
-
-        if ( (Ichan == alpha_left_first || Ichan == alpha_right_first) && within_hz_range ) {
-
-          if (list.size() > Ibin) {
-            float[] el = list.get(Ibin);
-            if (Ichan == alpha_left_first)  { el[0] = FFT_value_uV; }
-            if (Ichan == alpha_right_first) { el[1] = FFT_value_uV; }
-            for (int i=0; i < Ibin; i++) {
-              try {
-                list.get(i);
-              } catch ( IndexOutOfBoundsException e ) {
-                float[] temp = {0,0};
-                list.add(temp);
-              }
-            }
-            list.add(el);
-          } else {
-            float[] el = {0,0};
-            if (Ichan == alpha_left_first)  { el[0] = FFT_value_uV; }
-            if (Ichan == alpha_right_first) { el[1] = FFT_value_uV; }
-            for (int i=0; i < Ibin; i++) {
-              try {
-                list.get(i);
-              } catch ( IndexOutOfBoundsException e ) {
-                float[] temp = {0,0};
-                list.add(temp);
-              }
-            }
-            list.add(el);
-          }
-        }
+        
+          
+        //println("EEG_Processing_User: Ichan = " + Ichan + ", Freq = " + FFT_freq_Hz + "Hz, FFT Value = " + FFT_value_uV + "uV/bin");
       }
-    }
-
-    float[][] arr = new float[list.size()][];
-    arr = list.toArray(arr);
-    float[] diffArr = new float[list.size()];
-
-    for (int i=0; i<list.size(); i++) {
-      diffArr[i] = arr[i][1]-arr[i][0];
-    }
-    
-    int count = 0;
-    float total = 0;
-    float average = 0;
-    
-    for (int i=0; i<diffArr.length; i++) {
-      if (diffArr[i] != 0) {
-        count += 1;
-        total += diffArr[i];
-      }
-    }
-    
-    average = total / count;
-    
-    println("");
-    println("DIFFs:");
-    println(Arrays.toString(diffArr));
-    println("");
-    println("Average:");
-    println(average);
+    }  
   }
-}
+}   
 
 
 class EEG_Processing {
