@@ -1,26 +1,67 @@
 //import ddf.minim.analysis.*; //for FFT
 //import ArrayUtils;
 import java.util.ArrayList;
-import java.org.apache.Math.*;
-a.calcMean(
+//import java.org.apache.Math.*;
+import papaya.*;
+import java.util.Timer;
+
+class UpdateTask extends TimerTask
+{
+    public void run()
+    {
+        System.out.print("TimerTask detected");
+    }
+}
+
+
 class EEG_Processing_User {
   private float fs_Hz;  //sample rate
   private int nchan;  
-
-  ArrayList averageNumbersHeartBeat = new ArrayList(10);
+  boolean processing;  
+  ArrayList<Float> averageNumbersHeartBeat = new ArrayList<Float>(10);
   
-  final float peak = 4;
+  int heartbeatCounter;  
+  final int thresholdIncrease = 10;
   final int heartBeatChan = 4-1;  
   final int interval = 250; // amount of data for a rolling average //half a second
-  final int period = 0;
- 
+  int heartbeatInterval = 250;
+  int httpInterval = 10; //interval in seconds
   //class constructor
 EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       nchan = NCHAN;
       fs_Hz = sample_rate_Hz;
+      
+      startSendingHttpRequests();
+}
+  public void startSendingHttpRequests(){
+    
+    if (processing){
+      Timer timer = new Timer();
+      timer.scheduleAtFixedRate(new UpdateTask(), 0, httpInterval * 1000);
+    
+    }
   }
-
   //add some functions here...if you'd like
+  private boolean isHeartBeat(float runningAverage, float EEGValue){
+       boolean isHeartbeat = false;
+      if (EEGValue > (runningAverage * thresholdIncrease)){
+            isHeartbeat = true;
+      } 
+     if (-EEGValue > (runningAverage * thresholdIncrease)){
+            isHeartbeat = true;
+      }   
+     if (heartbeatInterval != 0) {
+         isHeartbeat = false;
+         heartbeatInterval--;
+     } 
+     
+     if (isHeartbeat) {
+         heartbeatInterval = 250;
+     }
+     
+     heartbeatCounter++;
+     return isHeartbeat;
+  }  
   
   //here is the processing routine called by the OpenBCI main program...update this with whatever you'd like to do
   public void process(
@@ -28,7 +69,8 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
         float[][] data_long_uV, //holds a longer piece of buffered EEG data, of same length as will be plotted on the screen
         float[][] data_forDisplay_uV, //this data has been filtered and is ready for plotting on the screen
         FFT[] fftData) {              //holds the FFT (frequency spectrum) of the latest data
-
+    
+    processing = true;
     //for example, you could loop over each EEG channel to do some sort of time-domain processing 
     //using the sample values that have already been filtered, as will be plotted on the display
     float EEG_value_uV;
@@ -39,26 +81,29 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
         EEG_value_uV = data_forDisplay_uV[Ichan][Isamp];  // again, this is from the filtered data that is ready for display
         
         //add your processing here...        
-          if (Ichan == 4) {
+          if (Ichan == heartBeatChan) {
             
             // if you've got less that ten numbers in the list, pop an extra one on the end
-              if (averageNumbersHeartBeat.toArray().length < 10) {
+              if (averageNumbersHeartBeat.toArray().length < interval) {
                 averageNumbersHeartBeat.add(EEG_value_uV);      
             } else {
               //remove the first, add another one on the end! 
               averageNumbersHeartBeat.remove(0); 
               averageNumbersHeartBeat.add(EEG_value_uV);     
             }
-           for (float i : averageNumbersHeartBeat) {
-              System.out.println(temp);
-            }
-         
-RunningMean a = new RunningMean(10);
-a.calcMean(averageNumbersHeartBeat)
             
-            println(averageNumbersHeartBeat.toArray().length + " contains " + averageNumbersHeartBeat.toString());
-            println("EEG_Processing_User: Ichan = " + Ichan + ", Isamp = " + Isamp + ", EEG Value = " + EEG_value_uV + " uV");
-          }
+           float runningSum = 0;
+           
+           for (float i : averageNumbersHeartBeat) {
+              runningSum += i;              
+            }
+            
+            float average = runningSum/(averageNumbersHeartBeat.size());
+            println("the average microvoltage over the last 250 samples is ", average, "current EEG" + EEG_value_uV);
+
+            
+
+        }
       }
     }
       
