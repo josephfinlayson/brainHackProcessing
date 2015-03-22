@@ -11,13 +11,18 @@ class httpStuff {
      
 }
 
-  public void sendRequest()
+  public void sendRequest(float value, String type)
   {
       try
     {
     DefaultHttpClient httpClient = new DefaultHttpClient();
+    StringEntity data = new StringEntity("");
     
-    StringEntity data = new StringEntity("[{\"timestamp\":\"2015-03-21T19:51:35.052Z\",\"location\":{\"lat\":123,\"long\":123},\"uuid\":\"xxx\"}]");
+    if (type == "positivity") {
+      data = new StringEntity("[{\"positivity\":" + value + "}]");
+    } else {
+      data = new StringEntity("[{\"hbpm\":" + value + "}]");
+    }
 
     HttpPost          httpPost   = new HttpPost( urlToSend );
                       httpPost.addHeader("Content-Type", "application/json;charset=UTF-8");
