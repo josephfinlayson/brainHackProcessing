@@ -21,6 +21,10 @@ class EEG_Processing_User {
   final int alpha_left_second = 7-1;
   final int alpha_right_second = 6-1;
   
+  int bufferLength = 30;
+  float[] positivityBuffer = new float[bufferLength];
+  int nextFreeIndexOfBuffer = 0;
+  
   private float fs_Hz;  //sample rate
   private int nchan;  
   boolean processing;  
@@ -117,6 +121,8 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     //OR, you could loop over each EEG channel and do some sort of frequency-domain processing from the FFT data
     float FFT_freq_Hz, FFT_value_uV;
     ArrayList<float[]> list = new ArrayList<float[]>();
+    println("nchan = " + nchan);
+    println("fftBuff[Ichan].specSize() = " + fftBuff[4].specSize());
     
     for (int Ichan=0;Ichan < nchan; Ichan++) {
       //loop over each new sample
@@ -190,6 +196,28 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     println("");
     println("Average:");
     println(average);
+    
+    positivityBuffer[nextFreeIndexOfBuffer] = average;
+    if (nextFreeIndexOfBuffer == bufferLength-1) {
+      // send and purge
+      float overTotal = 0;
+      float overAverage = 0;
+      
+      for (int i=0; i<bufferLength; i++) {
+        overTotal += positivityBuffer[i];
+      }
+      overAverage = overTotal / bufferLength;
+      println("overAverage = " + overAverage);
+      
+      httpStuff httpRequestor = new httpStuff("http://emotional-cartography.herokuapp.com/api");
+      httpRequestor.sendRequest(overAverage, "positivity");
+      Arrays.fill(positivityBuffer, 0);
+      nextFreeIndexOfBuffer=0;
+    } else {
+      nextFreeIndexOfBuffer += 1;
+    }
+    println("");
+    println("length: " + nextFreeIndexOfBuffer);    
   }
 }
 
