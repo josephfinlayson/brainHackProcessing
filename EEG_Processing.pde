@@ -13,6 +13,7 @@ class EEG_Processing_User {
   final int alpha_right_first = 2-1;
   final int alpha_left_second = 7-1;
   final int alpha_right_second = 6-1;
+  float overAverage = 0;
   
   int bufferLength = 30;
   float[] positivityBuffer = new float[bufferLength];
@@ -35,23 +36,46 @@ class UpdateTask extends TimerTask
 {
   public void run()
     {
-      println(heartbeatCounter);
+      httpStuff httpRequestor = new httpStuff("http://emotional-cartography.herokuapp.com/api");
+      int hpbm = (60/httpInterval) * heartbeatCounter;
+      heartbeatCounter = 0;
+      httpRequestor.sendRequest(hpbm, "BLAH");
+      println("sending requests!" + hpbm);
     }   
 }
   
-
+class PositivityTask extends TimerTask
+{
+  public void run()
+    {
+      httpStuff httpRequestor = new httpStuff("http://emotional-cartography.herokuapp.com/api");
+      httpRequestor.sendRequest(overAverage, "positivity"); 
+      println("sending requests!" + overAverage);
+    }   
+}
+  
+  
   //class constructor
 EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       nchan = NCHAN;
       fs_Hz = sample_rate_Hz;
       
       startSendingHttpRequests();
+      startSendingPositivityRequests();
 }
   
+  
+  public void startSendingPositivityRequests(){  
+//    if (processing){
+      Timer timer = new Timer();
+      timer.scheduleAtFixedRate(new PositivityTask(), 0, httpInterval * 1000);
+    
+//    }
+  }
   public void startSendingHttpRequests(){  
 //    if (processing){
       Timer timer = new Timer();
-      timer.scheduleAtFixedRate(new UpdateTask(), 0, httpInterval * 1);
+      timer.scheduleAtFixedRate(new UpdateTask(), 0, httpInterval * 1000);
     
 //    }
   }
@@ -114,8 +138,7 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
             }
             
             float average = runningSum/(averageNumbersHeartBeat.size());
-            println("the average microvoltage over the last 250 samples is ", average, "current EEG" + EEG_value_uV);
-
+            
             if (isHeartBeat(average, EEG_value_uV)){
                 println("HEARTBEAT");
             }
@@ -128,8 +151,8 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     //OR, you could loop over each EEG channel and do some sort of frequency-domain processing from the FFT data
     float FFT_freq_Hz, FFT_value_uV;
     ArrayList<float[]> list = new ArrayList<float[]>();
-    println("nchan = " + nchan);
-    println("fftBuff[Ichan].specSize() = " + fftBuff[4].specSize());
+
+    
     
     for (int Ichan=0;Ichan < nchan; Ichan++) {
       //loop over each new sample
@@ -139,7 +162,7 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
         FFT_value_uV = fftData[Ichan].getBand(Ibin);
 
         boolean within_hz_range = (FFT_freq_Hz > 8 && FFT_freq_Hz < 13);
-//        println(Ibin + " " + within_hz_range);
+//        
 
         //add your processing here...
 
@@ -197,18 +220,12 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
     
     average = total / count; // average IS WHAT WE SEND TO SERVER AS "positivity"
     
-    println("");
-    println("DIFFs:");
-    println(Arrays.toString(diffArr));
-    println("");
-    println("Average:");
-    println(average);
     
     positivityBuffer[nextFreeIndexOfBuffer] = average;
     if (nextFreeIndexOfBuffer == bufferLength-1) {
       // send and purge
       float overTotal = 0;
-      float overAverage = 0;
+      
       
       for (int i=0; i<bufferLength; i++) {
         overTotal += positivityBuffer[i];
@@ -216,8 +233,8 @@ EEG_Processing_User(int NCHAN, float sample_rate_Hz) {
       overAverage = overTotal / bufferLength;
       println("overAverage = " + overAverage);
       
-      httpStuff httpRequestor = new httpStuff("http://emotional-cartography.herokuapp.com/api");
-      httpRequestor.sendRequest(overAverage, "positivity");
+      //httpStuff httpRequestor = new httpStuff("http://emotional-cartography.herokuapp.com/api");
+      
       Arrays.fill(positivityBuffer, 0);
       nextFreeIndexOfBuffer=0;
     } else {
